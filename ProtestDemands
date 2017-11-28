@@ -1,0 +1,50 @@
+#load data
+protest_dataAf <- read.csv("SCAD_Africa_32_Update.csv")
+protest_dataLA <- read.csv("SCAD_LA_32.csv")
+
+load(file = "LApolity.RData")
+load(file = 'AfricaPolity.Rdata')
+
+LApol <- as.data.frame(LApolity)
+AFpol <- as.data.frame(AfricaPolity)
+
+#remove issue counts from Af data
+AFpol$issuecounts <- NULL
+
+#merge polity datasets
+pData <- rbind(LApol, AFpol)
+
+#regorganize columns in LA data to match Africa data
+protest_dataLA <- protest_dataLA[,c(1:35,37,38,36,39:42)]
+#combine data sets
+protest_data <- rbind(protest_dataAf, protest_dataLA)
+
+#rename country and year in protest_data so that we can merge polity from pData
+names(protest_data)[names(protest_data) == 'countryname'] <- 'country'
+names(protest_data)[names(protest_data) == 'eyr'] <- 'year'
+#grab polity from pData 
+pData2 <- pData[,c('country','year','polity2')]
+
+##issues with joining data 
+nrow(protest_data)
+protest_data <- merge(x = protest_data,y = pData2,by = c('country','year'), all.x = TRUE)
+nrow(protest_data)
+
+#add counter to identify number of events in aggregations below 
+protest_data$counter <- 1
+head(protest_data)
+#create dataset aggregated by country and year and issue
+#install.packages("data.table")
+library("data.table")
+protest_data <- as.data.table(protest_data)
+setkey(protest_data,ccode, country, year, issue1, issue2, issue3, polity2)
+country_protest <- protest_data[,list(duration = mean(duration), numEvents = sum(counter)), by = 'ccode,country,year,issue1,issue2,issue3,polity2']
+head(country_protest)
+country_protest
+#add counter to determine number of unique issues per/year per/country
+country_protest$counter <- 1
+
+country_protest <- as.data.table(country_protest)
+setkey(country_protest,ccode, country, year, polity2)
+issueTypes <- country_protest[,list(duration = mean(duration), numEvents = sum(numEvents), issuetypes =sum(counter)), by = 'ccode,country,year,polity2']
+issueTypes
